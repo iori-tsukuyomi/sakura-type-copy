@@ -4,6 +4,6 @@ python -m PyInstaller ^
     --clean ^
     --onefile ^
     --noconsole ^
-    --icon resources\python.ico ^
+    --icon resources\sakura-type-copy.ico ^
     --version-file resources\file_version_info.txt ^
     sakura-type-copy.py

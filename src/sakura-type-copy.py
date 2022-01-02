@@ -14,7 +14,6 @@ __version__ = '1.0.0'
 
 import codecs
 import configparser
-import imp
 import os
 import sys
 
@@ -127,49 +126,22 @@ def to_unistr(data: object, encoding=None) -> str:
 
 # ----- スクリプト実行フォルダの取得
 def get_pwd() -> str:
-    status = (
-        hasattr(
-            sys,
-            'frozen') or hasattr(
-            sys,
-            'importers') or imp.is_frozen('__main__'))
-    if status:
+    if getattr(sys, "frozen", False):
         return os.path.abspath(os.path.dirname(sys.executable))
-    return os.path.dirname(os.path.abspath(__file__))
+    else:
+        return os.path.dirname(os.path.abspath(__file__))
 
 
 # ----- iniファイルの内容を辞書として取得
 def load_inifile(filename: str, encoding=ENC) -> configparser:
-    if os.path.isabs(filename) is False:
-        filename = os.path.join(get_pwd(), filename)
-    if os.path.exists(filename):
-        # try:
-        with open(filename, 'rb') as f:
-            encoding = encoding_detector(f.read())
-            if encoding is None:
-                encoding = ENC
+    try:
         cp = configparser.ConfigParser(empty_lines_in_values=True)
         cp.BasicInterpolation = None
         cp.optionxform = str
         cp.read(filename, encoding)
         return cp
-        # except BaseException:
-        #     return None
-    return None
-
-
-# ----- 辞書の内容をiniファイルに書き出し
-def save_inifile(filename: str, cp: configparser, encoding=ENC) -> bool:
-    if os.path.isabs(filename) is False:
-        filename = os.path.join(get_pwd(), filename)
-    if os.path.exists(filename):
-        try:
-            with codecs.open(filename, 'w', encoding=encoding) as f:
-                cp.write(f)
-            return True
-        except BaseException:
-            return False
-    return False
+    except BaseException:
+        return None
 
 
 # ----- テキストファイルを読み込み、各行をリストとして取得
@@ -191,7 +163,7 @@ def load_textfile(filename, encoding=ENC):
 
 
 # ----- リストのアイテムを行としてテキストファイルに出力
-def save_textfile(data_list, filename, encoding=ENC, newline='\n'):
+def save_textfile(data_list, filename, encoding=ENC, newline='\r\n'):
     if os.path.isabs(filename) is False:
         filename = os.path.join(get_pwd(), filename)
     try:
@@ -234,15 +206,58 @@ def get_item_list(filename: str, pos: int) -> dict:
     return item_list
 
 
+def set_items(filename: str, item_list: dict, encoding=ENC) -> bool:
+    flag = 0
+    datas = load_textfile(filename, encoding=encoding)
+    for i in range(len(datas)):
+        if flag == 1:
+            for key in item_list:
+                if datas[i].lstrip().find(key) == 0:
+                    datas[i] = item_list[key]
+                    break
+            if datas[i].lstrip().find('[') == 0:
+                flag = 0
+        if datas[i].lstrip().find('[Types(') == 0:
+            flag = 1
+    return datas
+
+
+def main():
+    filename = 'C:/sakura/sakura.ini'
+    source_name = '基本'
+    encoding = ENC
+    # Check file existed.
+    if os.path.isabs(filename) is False:
+        filename = os.path.join(get_pwd(), filename)
+        if os.path.exists(filename) is False:
+            return False
+    # Set endoding.
+    with open(filename, 'rb') as f:
+        encoding = encoding_detector(f.read())
+        if encoding is None:
+            encoding = ENC
+    # Set config paser.
+    cp = load_inifile(filename, encoding=encoding)
+    if cp is None:
+        return False
+    # Set tyep list.
+    type_list = get_setting_list(cp)
+    if type_list is None:
+        return False
+    # Set copy items.
+    item_list = get_item_list(filename, type_list[source_name])
+    # Set ini file.
+    save_textfile(set_items(filename, item_list, encoding=encoding), 'C:/sakura/sakura-mod.ini', encoding=encoding)
+    return item_list
+
+
 # ----- 単体実行時の処理
 if __name__ == '__main__':
-
     # param = load_inifile(create_tmp_file('C:/sakura/sakura.ini'))
-    cp = load_inifile('C:/sakura/sakura.ini')
+    # cp = load_inifile('C:/sakura/sakura.ini')
     # save_inifile('C:/sakura/sakura-mod.ini', cp)
     # print(get_setting_list(cp))
-    print(get_item_list('C:/sakura/sakura.ini', 13))
-    # print(param)
+    print(main())
 
 
 # def create_tmp_file(filename: str, encoding=ENC) -> str:
