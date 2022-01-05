@@ -29,7 +29,7 @@ Windows版のみの提供となります。
 
 ## インストール方法
 1)  [リリース](https://github.com/iori-tsukuyomi/sakura-type-copy/releases)の
-    最新版から「sakura-type-copy.zip」を取得し、任意のフォルダへ解凍します、
+    最新版から「sakura-type-copy.zip」を取得し、任意のフォルダへ解凍します。
 2)  「sakura-type-copy.exe」ファイルが解凍されます。
 
 ## 注意事項
