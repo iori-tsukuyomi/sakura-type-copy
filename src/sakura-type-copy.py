@@ -1,7 +1,7 @@
 # !/usr/bin/python
 # -*- coding: utf-8 -*-
-# ===== サクラエディタ・タイプ別設定一括コピープログラム
-"""サクラエディタ・タイプ別設定一括コピープログラム
+# ===== サクラエディタ・タイプ別設定一括コピー
+"""サクラエディタ・タイプ別設定一括コピー
 
 サクラエディタに定義されているすべての「タイプ別設定」を、
 選択した「タイプ別設定」の値に変更するプログラムです。
@@ -9,11 +9,12 @@
 
 __author__ = 'Iori Tsukuyomi'
 __credit__ = 'Copyright (C) 2022 Iori Tsukuyomi All Rights Reserved.'
-__date__ = '2022/01/03'
-__version__ = '0.1.0'
+__date__ = '2022/01/05'
+__version__ = '1.0.0'
 
 import codecs
 import configparser
+import ctypes
 import os
 import sys
 import tkinter as tk
@@ -21,7 +22,6 @@ import tkinter.ttk as ttk
 from tkinter import filedialog
 from tkinter import messagebox
 
-# ----- 定数宣言
 ENC = 'utf_8_sig'
 TITLE = 'サクラエディタ・タイプ別設定一括コピー'
 COPY_ITEMS = [
@@ -111,7 +111,6 @@ K5ed/ab4AN1Xfw8vPn308tStuw8OH2dmzd/z62cNgOfDgQUFKOCABAb4UEAAOw==
 '''
 
 
-# ----- バイト文字列のエンコーディング取得
 def encoding_detector(data: bytes) -> str:
     encodings = [
         'utf_8_sig', 'utf_8', 'utf_32',
@@ -132,29 +131,6 @@ def encoding_detector(data: bytes) -> str:
     return ret_encoding
 
 
-# ----- オブジェクトを文字列に変換する
-def to_unistr(data: object, encoding=None) -> str:
-    try:
-        if data is None:
-            return ''
-        elif str(type(data)).find('datetime') > -1:
-            return data.strftime('%Y-%m-%d %H:%M:%S')
-        elif str(type(data)).find('time') > -1:
-            return data.Format('%Y-%m-%d %H:%M:%S')
-        elif isinstance(data, bytes):
-            if encoding is None:
-                encoding = encoding_detector(data)
-            if encoding:
-                return data.decode(encoding)
-            else:
-                return ''
-        else:
-            return str(data)
-    except BaseException:
-        return ''
-
-
-# ----- スクリプト実行フォルダの取得
 def get_pwd() -> str:
     if getattr(sys, "frozen", False):
         return os.path.abspath(os.path.dirname(sys.executable))
@@ -162,7 +138,6 @@ def get_pwd() -> str:
         return os.path.dirname(os.path.abspath(__file__))
 
 
-# ----- iniファイルの内容を辞書として取得
 def load_inifile(filename: str, encoding=ENC) -> configparser:
     try:
         cp = configparser.ConfigParser(empty_lines_in_values=True)
@@ -174,7 +149,6 @@ def load_inifile(filename: str, encoding=ENC) -> configparser:
         return None
 
 
-# ----- テキストファイルを読み込み、各行をリストとして取得
 def load_textfile(filename, encoding=ENC):
     if os.path.isabs(filename) is False:
         filename = os.path.join(get_pwd(), filename)
@@ -192,7 +166,6 @@ def load_textfile(filename, encoding=ENC):
     return None
 
 
-# ----- リストのアイテムを行としてテキストファイルに出力
 def save_textfile(data_list, filename, encoding=ENC, newline='\r\n'):
     if os.path.isabs(filename) is False:
         filename = os.path.join(get_pwd(), filename)
@@ -224,75 +197,45 @@ def get_item_list(filename: str, pos: int) -> dict:
     item_list = {}
     flag = 0
     datas = load_textfile(filename)
-    for i in range(len(datas)):
-        if flag == 1:
-            for item in COPY_ITEMS:
-                if datas[i].find(item) == 0:
-                    item_list[item] = datas[i]
-            if datas[i].find('[') == 0:
-                break
-        if datas[i].find(sec_key) == 0:
-            flag = 1
-    return item_list
+    if datas:
+        for i in range(len(datas)):
+            if flag == 1:
+                for item in COPY_ITEMS:
+                    if datas[i].find(item) == 0:
+                        item_list[item] = datas[i]
+                if datas[i].find('[') == 0:
+                    break
+            if datas[i].find(sec_key) == 0:
+                flag = 1
+        return item_list
+    else:
+        return None
 
 
-def set_items(filename: str, item_list: dict, encoding=ENC) -> bool:
+def set_items(filename: str, item_list: dict, encoding=ENC) -> dict:
     flag = 0
     datas = load_textfile(filename, encoding=encoding)
-    for i in range(len(datas)):
-        if flag == 1:
-            for key in item_list:
-                if datas[i].lstrip().find(key) == 0:
-                    datas[i] = item_list[key]
-                    break
-            if datas[i].lstrip().find('[') == 0:
-                flag = 0
-        if datas[i].lstrip().find('[Types(') == 0:
-            flag = 1
-    return datas
-
-
-def main():
-    filename = 'C:/sakura/sakura.ini'
-    source_name = '基本'
-    encoding = ENC
-    # Check file existed.
-    if os.path.isabs(filename) is False:
-        filename = os.path.join(get_pwd(), filename)
-        if os.path.exists(filename) is False:
-            return False
-    # Set endoding.
-    with open(filename, 'rb') as f:
-        encoding = encoding_detector(f.read())
-        if encoding is None:
-            encoding = ENC
-    # Set config paser.
-    cp = load_inifile(filename, encoding=encoding)
-    if cp is None:
-        return False
-    # Set tyep list.
-    type_list = get_setting_list(cp)
-    if type_list is None:
-        return False
-    # Set copy items.
-    item_list = get_item_list(filename, type_list[source_name])
-    # Set ini file.
-    save_textfile(
-        set_items(
-            filename,
-            item_list,
-            encoding=encoding),
-        'C:/sakura/sakura-mod.ini',
-        encoding=encoding)
-    return item_list
+    if datas:
+        for i in range(len(datas)):
+            if flag == 1:
+                for key in item_list:
+                    if datas[i].lstrip().find(key) == 0:
+                        datas[i] = item_list[key]
+                        break
+                if datas[i].lstrip().find('[') == 0:
+                    flag = 0
+            if datas[i].lstrip().find('[Types(') == 0:
+                flag = 1
+        return datas
+    else:
+        return None
 
 
 class Application():
     def __init__(self, top=None):
         self.style = ttk.Style()
         self.style.theme_use('winnative')
-        # self.style.configure('.',font="TkDefaultFont")
-        top.geometry('580x100+150+150')
+        top.geometry('580x130+150+150')
         top.resizable(0, 0)
         top.title('サクラエディタ・タイプ別設定一括コピー')
 
@@ -305,8 +248,7 @@ class Application():
         self.type_list = None
 
         self.TLabel1 = ttk.Label(self.top)
-        self.TLabel1.place(x=10, y=10, height=19, width=75)
-        # self.TLabel1.configure(font="TkDefaultFont")
+        self.TLabel1.place(x=10, y=10, height=28, width=100)
         self.TLabel1.configure(relief='flat')
         self.TLabel1.configure(anchor='w')
         self.TLabel1.configure(justify='left')
@@ -314,14 +256,13 @@ class Application():
         self.TLabel1.configure(compound='left')
 
         self.entry_file = ttk.Entry(self.top)
-        self.entry_file.place(x=90, y=10, height=21, width=406)
+        self.entry_file.place(x=110, y=10, height=28, width=380)
         self.entry_file.configure(state='readonly')
         self.entry_file.configure(takefocus='')
         self.entry_file.configure(cursor='fleur')
 
         self.TLabel2 = ttk.Label(self.top)
-        self.TLabel2.place(x=10, y=40, height=19, width=68)
-        # self.TLabel2.configure(font="TkDefaultFont")
+        self.TLabel2.place(x=10, y=50, height=28, width=100)
         self.TLabel2.configure(relief='flat')
         self.TLabel2.configure(anchor='w')
         self.TLabel2.configure(justify='left')
@@ -329,26 +270,26 @@ class Application():
         self.TLabel2.configure(compound='left')
 
         self.button_select = ttk.Button(self.top)
-        self.button_select.place(x=500, y=10, height=25, width=76)
+        self.button_select.place(x=500, y=8, height=30, width=76)
         self.button_select.configure(takefocus='')
         self.button_select.configure(text='選択')
         self.button_select.configure(compound='left')
         self.button_select.configure(command=self.get_filename)
 
         self.combobox_type = ttk.Combobox(self.top)
-        self.combobox_type.place(x=90, y=40, height=21, width=403)
+        self.combobox_type.place(x=110, y=50, height=28, width=380)
         self.combobox_type.configure(textvariable=self.combobox)
         self.combobox_type.configure(takefocus='')
 
         self.button_exec = ttk.Button(self.top)
-        self.button_exec.place(x=420, y=70, height=25, width=76)
+        self.button_exec.place(x=420, y=88, height=30, width=76)
         self.button_exec.configure(takefocus='')
         self.button_exec.configure(text='実行')
         self.button_exec.configure(compound='left')
-        self.button_exec.configure(command=self.set_item)
+        self.button_exec.configure(command=self.set_types)
 
         self.button_quit = ttk.Button(self.top)
-        self.button_quit.place(x=500, y=70, height=25, width=76)
+        self.button_quit.place(x=500, y=88, height=30, width=76)
         self.button_quit.configure(takefocus='')
         self.button_quit.configure(text='終了')
         self.button_quit.configure(compound='left')
@@ -356,7 +297,7 @@ class Application():
 
     def get_filename(self):
         self.filename = filedialog.askopenfilename(
-            filetypes=[('設定ファイル', '*.*')])
+            filetypes=[('設定ファイル', '*.ini')])
         # Set endoding.
         with open(self.filename, 'rb') as f:
             self.encoding = encoding_detector(f.read())
@@ -366,6 +307,17 @@ class Application():
         self.cp = load_inifile(self.filename, encoding=self.encoding)
         if self.cp is None:
             messagebox.showerror(TITLE, '設定ファイルが読み込めませんでした。')
+            return False
+        # Check Sakura-Editor version.
+        ver = False
+        try:
+            ver = self.cp['Other']['szVersion']
+            if ver == '2.4.1.2849':
+                ver = True
+        except BaseException:
+            pass
+        if ver is False:
+            messagebox.showerror(TITLE, 'バージョン「2.4.1.2849」の設定ファイルを選択してください。')
             return False
         # Set tyep list.
         self.type_list = get_setting_list(self.cp)
@@ -379,7 +331,7 @@ class Application():
         self.entry_file.insert(0, self.filename)
         self.entry_file.configure(state='readonly')
 
-    def set_item(self):
+    def set_types(self):
         if self.combobox.get() == '':
             messagebox.showwarning(TITLE, 'コピー元タイプを選択してください。')
             return False
@@ -387,97 +339,39 @@ class Application():
             TITLE, 'タイプ「{0}」の色指定と縦線桁指定をすべてのタイプに適用します。よろしいですか?'.format(
                 self.combobox.get()))
         if ret:
-            # Set copy items.
             item_list = get_item_list(
                 self.filename, self.type_list[self.combobox.get()])
             if item_list:
-                save_textfile(
-                    set_items(
-                        self.filename,
-                        item_list,
-                        encoding=self.encoding),
-                    'C:/sakura/sakura-mod.ini',
+                datas = set_items(
+                    self.filename,
+                    item_list,
                     encoding=self.encoding)
-                messagebox.showinfo(TITLE, '正常に適用されました。アプリケーションを終了してください。')
+                if datas:
+                    save_textfile(
+                        datas,
+                        self.filename,
+                        encoding=self.encoding)
+                    messagebox.showinfo(TITLE, '正常に適用されました。アプリケーションを終了してください。')
+                else:
+                    messagebox.showerror(TITLE, 'タイプの適用に失敗しました。処理を中断しました。')
+                    return False
             else:
                 messagebox.showerror(
                     TITLE, '設定項目が取得できませんでした。正しいファイルを選択してください。')
+                return False
+        return True
 
     def quit(self):
         self.top.destroy()
 
 
-# ----- 単体実行時の処理
+# ----- Main
 if __name__ == '__main__':
-    # param = load_inifile(create_tmp_file('C:/sakura/sakura.ini'))
-    # cp = load_inifile('C:/sakura/sakura.ini')
-    # save_inifile('C:/sakura/sakura-mod.ini', cp)
-    # print(get_setting_list(cp))
-    # print(main())
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(True)
+    except BaseException:
+        pass
     root = tk.Tk()
     root.tk.call('wm', 'iconphoto', root._w, tk.PhotoImage(data=ICON_DATA))
-    # root.iconbitmap(default='C:/git-repos/sakura-type-copy/src/sakura-type-copy.ico')
-    # app = Application(master=root)
     app = Application(top=root)
     root.mainloop()
-
-
-# class Application(tk.Frame):
-#     def __init__(self, master=None):
-#         super().__init__(master)
-#         self.master = master
-#         self.master.geometry("640x480")
-#         self.pack()
-#         self.create_widgets()
-
-#     def create_widgets(self):
-#         self.frame_file = tk.Frame(self.master, padx=8, pady=8)
-#         self.frame_select = tk.Frame(self.master, padx=8, pady=8)
-#         self.frame_option = tk.Frame(self.master, padx=8, pady=8)
-#         self.frame_action = tk.Frame(self.master, padx=8, pady=8)
-
-#         self.label_file = tk.Label(self.frame_file, text='設定ファイル')
-#         self.text_file = tk.Entry(self.frame_file, width=50, textvariable='', state='readonly')
-#         self.button_file = tk.Button(self.frame_file, text='選択', command=self.say_hi)
-
-#         self.label_file.pack(side='left')
-#         self.text_file.pack(side='left')
-#         self.button_file.pack(side='left')
-
-#         self.frame_file.pack(side='top')
-#         self.frame_select.pack(side='top')
-#         self.frame_option.pack(side='top')
-#         self.frame_action.pack(side='top')
-
-#         self.hi_there = tk.Button(self)
-#         self.hi_there["text"] = "Hello World\n(click me)"
-#         self.hi_there["command"] = self.say_hi
-#         self.hi_there.pack(side="top")
-
-#         self.quit = tk.Button(self, text="QUIT", fg="red",
-#                               command=self.master.destroy)
-#         self.quit.pack(side="bottom")
-
-#     def say_hi(self):
-#         print("hi there, everyone!")
-
-# def create_tmp_file(filename: str, encoding=ENC) -> str:
-#     enc = encoding
-#     if os.path.isabs(filename) is False:
-#         filename = os.path.join(get_pwd(), filename)
-#     if os.path.exists(filename):
-#         try:
-#             with open(filename, 'rb') as f:
-#                 enc = encoding_detector(f.read())
-#                 if enc is None:
-#                     enc = encoding
-#             with codecs.open(filename, 'r', enc) as f:
-#                 data = f.read()
-#                 out_filename = '{0}.{1}'.format(filename, str(uuid.uuid4()))
-#                 with codecs.open(out_filename, 'w', enc) as fw:
-#                     data = data.replace('%', '%%')
-#                     fw.write(data)
-#                     return out_filename
-#         except BaseException:
-#             return None
-#     return None
